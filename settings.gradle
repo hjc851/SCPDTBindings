@@ -1,0 +1,8 @@
+rootProject.name = 'SCPDTools'
+include 'common'
+include 'sim'
+include 'sherlock-warwick'
+include 'sherlock-sydney'
+include 'plaggie'
+include 'jplag'
+include 'naive'
