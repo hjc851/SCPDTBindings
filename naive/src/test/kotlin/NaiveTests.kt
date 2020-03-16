@@ -1,4 +1,5 @@
 import me.haydencheers.scpdt.SCPDTool
+import me.haydencheers.scpdt.naive.graph.NaivePDGEditDistanceSCPDT
 import me.haydencheers.scpdt.naive.string.NaiveStringEditDistanceSCPDT
 import me.haydencheers.scpdt.naive.string.NaiveStringTilingSCPDT
 import me.haydencheers.scpdt.naive.token.NaiveTokenEditDistanceSCPDT
@@ -35,6 +36,11 @@ class NaiveTests {
     @Test
     fun testTreeEditDistance() {
         test(NaiveTreeEditDistanceSCPDT(), root)
+    }
+
+    @Test
+    fun testPDG() {
+        test(NaivePDGEditDistanceSCPDT(), root)
     }
 
     private fun test(tool: SCPDTool, root: Path) {
