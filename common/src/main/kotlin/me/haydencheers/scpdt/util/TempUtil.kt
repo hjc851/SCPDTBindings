@@ -40,4 +40,8 @@ object TempUtil {
 
         return TempInputTriple(tmp, lhs, rhs)
     }
+
+    fun makeTempDirectory(): Path {
+        return Files.createTempDirectory("scpdt-tmp")
+    }
 }
