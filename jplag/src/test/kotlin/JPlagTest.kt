@@ -9,9 +9,9 @@ class JPlagTest {
     @Test
     fun test() {
         val root = Paths.get("/home/haydencheers/Desktop/PhD Data Sets/COMP2240 2018 A1 A2 A3/COMP2240_18_A1_Dataset")
-        val result = tool.evaluateDirectory(root)
+        val result = tool.evaluateSubmissions(root)
 
-        result.results
+        result.pairwiseSubmissionSimilarities
             .sortedByDescending { it.third }
             .forEach { (l, r, score) ->
                 println("$l:$r $score")

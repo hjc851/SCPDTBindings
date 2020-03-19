@@ -8,9 +8,9 @@ class PlaggieTest {
 
     @Test
     fun test() {
-        val result = tool.evaluateDirectory(Paths.get("/home/haydencheers/Desktop/PhD Data Sets/SENG1110A12017_Seeded/All"))
+        val result = tool.evaluateSubmissions(Paths.get("/home/haydencheers/Desktop/PhD Data Sets/SENG1110A12017_Seeded/All"))
 
-        result.results
+        result.pairwiseSubmissionSimilarities
             .sortedByDescending { it.third }
             .forEach { (l, r, score) ->
                 println("$l:$r $score")
