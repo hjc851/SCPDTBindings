@@ -9,14 +9,42 @@ import java.nio.file.Paths
 import kotlin.math.max
 import kotlin.streams.toList
 
-object SherlockWarwickSCPDT: AbstractJavaSCPDTool() {
+class SherlockWarwickSCPDT: AbstractJavaSCPDTool() {
     override val id: String
         get() = "Sherlock-Warwick"
 
-    private val sherlockJar = this.javaClass.getResource("/sherlock-warwick/sherlock.jar").path
-    private val shellJar = this.javaClass.getResource("/sherlock-warwick/SWShell.jar").path
+    private val sherlockResourceName = "/sherlock-warwick/sherlock.jar"
+    private val shellResourceName = "/sherlock-warwick/SWShell.jar"
+
+    private lateinit var sherlockJar: Path
+    private lateinit var sherlockJarStr: String
+
+    private lateinit var shellJar: Path
+    private lateinit var shellJarStr: String
+
+    override fun thaw(path: Path) {
+        val sherlockResource = this.javaClass.getResourceAsStream(sherlockResourceName)
+        this.sherlockJar = path.resolve("sherlock.jar")
+        this.sherlockJarStr = sherlockJar.toAbsolutePath().toString()
+        Files.copy(sherlockResource, sherlockJar)
+        sherlockResource.close()
+
+        val shellResource = this.javaClass.getResourceAsStream(shellResourceName)
+        this.shellJar = path.resolve("SWShell.jar")
+        this.shellJarStr = shellJar.toAbsolutePath().toString()
+        Files.copy(shellResource, shellJar)
+        shellResource.close()
+    }
+
+    override fun close() {
+        Files.delete(sherlockJar)
+        Files.delete(shellJar)
+    }
 
     override fun evaluatePairwise(ldir: Path, rdir: Path): Double {
+        if (!::sherlockJar.isInitialized) throw IllegalStateException("Field sherlockJar is not thawed")
+        if (!::shellJar.isInitialized) throw IllegalStateException("Field shellJar is not thawed")
+
         if (Files.list(ldir).use { it.count() } == 0.toLong()) return 0.0
         if (Files.list(rdir).use { it.count() } == 0.toLong()) return 0.0
 
@@ -33,7 +61,7 @@ object SherlockWarwickSCPDT: AbstractJavaSCPDTool() {
 
             val result = runJava(
                 "-cp",
-                "$sherlockJar:$shellJar",
+                "$sherlockJarStr:$shellJarStr",
                 "uk.ac.warwick.dcs.cobalt.sherlock.SWShell",
                 tmp.toAbsolutePath().toString(),
                 "-p",

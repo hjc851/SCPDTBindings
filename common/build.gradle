@@ -3,7 +3,7 @@ plugins {
     id 'org.jetbrains.kotlin.jvm'
 }
 
-group 'me.haydencheers'
+group 'me.haydencheers.scpdt'
 version '1.0-SNAPSHOT'
 
 sourceCompatibility = 1.8

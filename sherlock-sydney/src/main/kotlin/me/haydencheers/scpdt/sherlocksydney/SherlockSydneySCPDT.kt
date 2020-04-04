@@ -7,16 +7,34 @@ import java.lang.IllegalArgumentException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.nio.file.attribute.PosixFileAttributeView
+import java.nio.file.attribute.PosixFileAttributes
+import java.nio.file.attribute.PosixFilePermission
 import kotlin.math.max
 
-object SherlockSydneySCPDT: SCPDTool {
+class SherlockSydneySCPDT: SCPDTool {
     override val id: String
         get() = "Sherlock-Sydney"
 
-    private val sherlock = this.javaClass.getResource("/sherlock-master/sherlock").path
+    private val sherlockResourceName = "/sherlock-master/sherlock"
 
-    init {
-        if (!Files.isExecutable(Paths.get(sherlock))) throw IllegalArgumentException("sherlock executable is not flagged as executable")
+    private lateinit var sherlockPath: Path
+    private lateinit var sherlockPathStr: String
+
+    override fun thaw(path: Path) {
+        val sherlockResource = this.javaClass.getResourceAsStream(sherlockResourceName)
+        this.sherlockPath = path.resolve("sherlock")
+        this.sherlockPathStr = sherlockPath.toAbsolutePath().toString()
+        Files.copy(sherlockResource, sherlockPath)
+        sherlockResource.close()
+
+        val perms = mutableSetOf<PosixFilePermission>()
+        perms.add(PosixFilePermission.OWNER_EXECUTE)
+        Files.setPosixFilePermissions(sherlockPath, perms)
+    }
+
+    override fun close() {
+        Files.delete(sherlockPath)
     }
 
     override fun evaluatePairwise(ldir: Path, rdir: Path): Double {
@@ -28,7 +46,7 @@ object SherlockSydneySCPDT: SCPDTool {
 
             val proc = ProcessBuilder()
                 .command (
-                    sherlock,
+                    sherlockPathStr,
                     "-t",
                     "0%",
                     "-e",

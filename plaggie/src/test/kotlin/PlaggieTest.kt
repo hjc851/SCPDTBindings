@@ -4,16 +4,21 @@ import java.nio.file.Paths
 
 class PlaggieTest {
 
-    val tool = PlaggieSCPDT
+    val root = Paths.get("/home/haydencheers/Desktop/SENG1110A12017-ALL")
 
     @Test
     fun test() {
-        val result = tool.evaluateSubmissions(Paths.get("/home/haydencheers/Desktop/PhD Data Sets/SENG1110A12017_Seeded/All"))
+        val tool = PlaggieSCPDT
+        tool.thaw()
+
+        val result = tool.evaluateSubmissions(root)
 
         result.pairwiseSubmissionSimilarities
             .sortedByDescending { it.third }
             .forEach { (l, r, score) ->
                 println("$l:$r $score")
             }
+
+        tool.close()
     }
 }

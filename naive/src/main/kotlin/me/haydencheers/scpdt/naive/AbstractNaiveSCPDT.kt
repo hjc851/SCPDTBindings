@@ -10,9 +10,26 @@ abstract class AbstractNaiveSCPDT : AbstractJavaSCPDTool() {
     abstract val className: String
     abstract val threshold: Int
 
-    val jar = this.javaClass.getResource("/frontend-1.0-SNAPSHOT.jar").path
+    private val jarResourceName = "/frontend-1.0-SNAPSHOT.jar"
+
+    private lateinit var jarPath: Path
+    private lateinit var jarPathStr: String
+
+    override fun thaw(path: Path) {
+        val jarResource = this.javaClass.getResourceAsStream(jarResourceName)
+        this.jarPath = path.resolve("naive-frontend.jar")
+        this.jarPathStr = jarPath.toAbsolutePath().toString()
+        Files.copy(jarResource, jarPath)
+        jarResource.close()
+    }
+
+    override fun close() {
+        Files.delete(jarPath)
+    }
 
     override fun evaluatePairwise(ldir: Path, rdir: Path): Double {
+        if (!::jarPath.isInitialized) throw IllegalStateException("Field jarPath is not thawed")
+
         if (Files.list(ldir).use { it.count() } == 0.toLong()) return 0.0
         if (Files.list(rdir).use { it.count() } == 0.toLong()) return 0.0
 
@@ -29,7 +46,7 @@ abstract class AbstractNaiveSCPDT : AbstractJavaSCPDTool() {
 
             val result = runJava (
                 "-cp",
-                jar,
+                jarPathStr,
                 className,
                 lhs.toAbsolutePath().toString(),
                 rhs.toAbsolutePath().toString(),

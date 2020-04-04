@@ -17,8 +17,6 @@ class SimWineSCPDTool: SCPDTool {
 
     private val wine: Path
     private val wineStr: String
-    private val sim: Path
-    private val simStr: String
 
     constructor(): this(Paths.get(System.getenv("WINE_EXEC") ?: "/usr/bin/wine"))
 
@@ -29,14 +27,26 @@ class SimWineSCPDTool: SCPDTool {
         if (!Files.exists(wine) || !Files.isExecutable(wine)) throw IllegalArgumentException("wine executable does not exist, or is not executable")
     }
 
-    init {
-        this.sim = Paths.get(this.javaClass.getResource("/sim_exe_3_0_2/sim_java.exe").path)
-        this.simStr = sim.toAbsolutePath().toString()
+    private val simResourceName = "/sim_exe_3_0_2/sim_java.exe"
 
-        if (!Files.exists(sim) || !Files.isExecutable(sim)) throw IllegalArgumentException("sim executable does not exist, or is not executable")
+    private lateinit var simPath: Path
+    private lateinit var simPathStr: String
+
+    override fun thaw(path: Path) {
+        val simResource = this.javaClass.getResourceAsStream(simResourceName)
+        this.simPath = path.resolve("sim_java.exe")
+        this.simPathStr = simPath.toAbsolutePath().toString()
+        Files.copy(simResource, simPath)
+        simResource.close()
+    }
+
+    override fun close() {
+        Files.delete(simPath)
     }
 
     override fun evaluatePairwise(ldir: Path, rdir: Path): Double {
+        if (!::simPath.isInitialized) throw IllegalStateException("Field simPath is not thawed")
+
         if (Files.list(ldir).use { it.count() } == 0.toLong()) return 0.0
         if (Files.list(rdir).use { it.count() } == 0.toLong()) return 0.0
 
@@ -54,7 +64,7 @@ class SimWineSCPDTool: SCPDTool {
             val proc = ProcessBuilder()
                 .command(
                     wineStr,
-                    simStr,
+                    simPathStr,
                     "-R",
                     "-s",
                     "-p",

@@ -11,36 +11,66 @@ import java.nio.file.Paths
 
 class NaiveTests {
 
-    val root = Paths.get("/home/haydencheers/Desktop/PhD Data Sets/SENG1110A12017_Seeded/All")
+    val root = Paths.get("/home/haydencheers/Desktop/SENG1110A12017-ALL")
 
     @Test
     fun testStringTiling() {
-        test(NaiveStringTilingSCPDT(), root)
+        val tool = NaiveStringTilingSCPDT()
+        tool.thaw()
+
+        test(tool, root)
+
+        tool.close()
     }
 
     @Test
     fun testStringEditDistance() {
-        test(NaiveStringEditDistanceSCPDT(), root)
+        val tool = NaiveStringEditDistanceSCPDT()
+        tool.thaw()
+
+        test(tool, root)
+
+        tool.close()
     }
 
     @Test
     fun testTokenTiling() {
-        test(NaiveTokenTilingSCPDT(), root)
+        val tool = NaiveTokenTilingSCPDT()
+        tool.thaw()
+
+        test(tool, root)
+
+        tool.close()
     }
 
     @Test
     fun testTokenEditDistance() {
-        test(NaiveTokenEditDistanceSCPDT(), root)
+        val tool = NaiveTokenEditDistanceSCPDT()
+        tool.thaw()
+
+        test(tool, root)
+
+        tool.close()
     }
 
     @Test
     fun testTreeEditDistance() {
-        test(NaiveTreeEditDistanceSCPDT(), root)
+        val tool = NaiveTreeEditDistanceSCPDT()
+        tool.thaw()
+
+        test(tool, root)
+
+        tool.close()
     }
 
     @Test
     fun testPDG() {
-        test(NaivePDGEditDistanceSCPDT(), root)
+        val tool = NaivePDGEditDistanceSCPDT()
+        tool.thaw()
+
+        test(tool, root)
+
+        tool.close()
     }
 
     private fun test(tool: SCPDTool, root: Path) {

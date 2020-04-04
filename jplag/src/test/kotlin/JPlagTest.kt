@@ -4,11 +4,12 @@ import java.nio.file.Paths
 
 class JPlagTest {
 
-    val tool = JPlagSCPDT
-
     @Test
     fun test() {
-        val root = Paths.get("/home/haydencheers/Desktop/PhD Data Sets/COMP2240 2018 A1 A2 A3/COMP2240_18_A1_Dataset")
+        val tool = JPlagSCPDT
+        tool.thaw()
+
+        val root = Paths.get("/home/haydencheers/Desktop/SENG1110A12017-ALL")
         val result = tool.evaluateSubmissions(root)
 
         result.pairwiseSubmissionSimilarities
@@ -16,5 +17,7 @@ class JPlagTest {
             .forEach { (l, r, score) ->
                 println("$l:$r $score")
             }
+
+        tool.close()
     }
 }

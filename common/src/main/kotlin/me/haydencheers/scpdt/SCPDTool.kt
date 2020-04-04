@@ -7,10 +7,10 @@ import java.util.*
 import java.util.concurrent.*
 import kotlin.streams.toList
 
-interface SCPDTool {
+interface SCPDTool: AutoCloseable {
 
     companion object {
-        val SHARED_EXECUTION_POOL: ExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()-2)
+        val SHARED_EXECUTION_POOL: ExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()/2)
     }
 
     val id: String
@@ -196,4 +196,15 @@ interface SCPDTool {
         val pairwiseSubmissionSimilarities: List<Triple<String, String, Double>>,
         val filewiseSubmissionResults: Map<Pair<String, String>, List<Triple<String, String, Double>>>
     )
+
+    //
+    //  Thaw
+    //
+
+    fun thaw() = thaw(Files.createTempDirectory("scpdtbindings-thaw"))
+
+    /**
+     * Thaw the current tool into the specified directory
+     */
+    fun thaw(path: Path)
 }
