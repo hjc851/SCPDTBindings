@@ -10,7 +10,7 @@ import kotlin.streams.toList
 interface SCPDTool: AutoCloseable {
 
     companion object {
-        val SHARED_EXECUTION_POOL: ExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()/2)
+        val SHARED_EXECUTION_POOL: ExecutorService = Executors.newFixedThreadPool(4)
     }
 
     val id: String
