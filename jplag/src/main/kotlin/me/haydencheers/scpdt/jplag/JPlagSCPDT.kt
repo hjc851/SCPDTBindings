@@ -52,7 +52,15 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
                 val out = result.out.toList()
                 val err = result.err.toList()
 
+                val lfiles = Files.walk(ldir).filter { Files.isRegularFile(it) }.use { it.toList() }
+                val rfiles = Files.walk(rdir).filter { Files.isRegularFile(it) }.use { it.toList() }
+
                 result.close()
+
+                for (line in out)
+                    if (line.contains("Not enough valid submissions"))
+                        return -1.0
+
                 throw IllegalStateException("Received error code ${result.exitCode}")
             }
 

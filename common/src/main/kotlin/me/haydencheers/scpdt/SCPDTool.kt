@@ -10,7 +10,7 @@ import kotlin.streams.toList
 interface SCPDTool: AutoCloseable {
 
     companion object {
-        val SHARED_EXECUTION_POOL: ExecutorService = Executors.newFixedThreadPool(4)
+        val SHARED_EXECUTION_POOL: ExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() / 2)
     }
 
     val id: String
@@ -21,6 +21,40 @@ interface SCPDTool: AutoCloseable {
      * @rdir: Root folder of rhs submission
      */
     fun evaluatePairwise(ldir: Path, rdir: Path): Double
+
+    fun evaluatePairwiseAndFiles(ldir: Path, rdir: Path, executor: ExecutorService = SHARED_EXECUTION_POOL): PairwiseWithFileSimilarityResult {
+        val sim = evaluatePairwise(ldir, rdir)
+
+        val fileSimilarities = mutableListOf<Triple<String, String, Double>>()
+
+        val lJavaFiles = Files.walk(ldir)
+            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+            .use { it.toList() }
+
+        val rJavaFiles = Files.walk(rdir)
+            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+            .use { it.toList() }
+
+        for (lfile in lJavaFiles) {
+            val lname = ldir.relativize(lfile).toString()
+
+            for (rfile in rJavaFiles) {
+                 val rname = rdir.relativize(rfile).toString()
+
+                val fsim = evaluateFiles(lfile, rfile)
+                fileSimilarities.add(Triple(lname, rname, fsim))
+            }
+        }
+
+        return PairwiseWithFileSimilarityResult(ldir.fileName.toString(), rdir.fileName.toString(), sim, fileSimilarities)
+    }
+
+    data class PairwiseWithFileSimilarityResult (
+        val lhs: String,
+        val rhs: String,
+        val sim: Double,
+        val fileSimilarities: List<Triple<String, String, Double>>
+    )
 
     /***
      * Evaluates two files lfile and rfile for similarity
