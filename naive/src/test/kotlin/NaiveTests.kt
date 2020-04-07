@@ -76,8 +76,7 @@ class NaiveTests {
     private fun test(tool: SCPDTool, root: Path) {
         val result = tool.evaluateSubmissions(root)
 
-        result.pairwiseSubmissionSimilarities
-            .sortedByDescending { it.third }
+        result.sortedByDescending { it.third }
             .forEach { (l, r, score) ->
                 println("$l:$r $score")
             }

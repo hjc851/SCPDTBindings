@@ -1,6 +1,7 @@
 package me.haydencheers.scpdt
 
 import java.io.Closeable
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.lang.IllegalStateException
@@ -35,9 +36,14 @@ abstract class AbstractJavaSCPDTool: SCPDTool {
 
     protected fun runJava(vararg command: String, env: Map<String, String> = mutableMapOf(), asyncCallback: ((InputStream, OutputStream) -> Unit)? = null): JavaResult {
 
+        val stdout = File.createTempFile("scpdt-java-exec", "io")
+        val stderr = File.createTempFile("scpdt-java-exec", "io")
+
         val proc = ProcessBuilder()
             .apply { environment().putAll(env) }
             .command(javaStr, *command)
+            .redirectOutput(stdout)
+            .redirectError(stderr)
             .start()
 
         asyncCallback?.apply {
@@ -50,8 +56,8 @@ abstract class AbstractJavaSCPDTool: SCPDTool {
 
         return JavaResult (
             result,
-            proc.inputStream.bufferedReader().lines(),
-            proc.errorStream.bufferedReader().lines()
+            stdout.bufferedReader().lines(),
+            stderr.bufferedReader().lines()
         )
     }
 
