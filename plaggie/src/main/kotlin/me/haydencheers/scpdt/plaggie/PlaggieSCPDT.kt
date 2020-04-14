@@ -4,6 +4,7 @@ import me.haydencheers.scpdt.AbstractJavaSCPDTool
 import me.haydencheers.scpdt.util.TempUtil
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import kotlin.streams.toList
 
 class PlaggieSCPDT: AbstractJavaSCPDTool() {
@@ -72,4 +73,81 @@ class PlaggieSCPDT: AbstractJavaSCPDTool() {
             return sim
         }
     }
+
+    override fun evaluateAllFiles(ldir: Path, rdir: Path): List<Triple<String, String, Double>> {
+        if (!::jarPath.isInitialized) throw IllegalStateException("Field jarPath is not thawed")
+        if (!::dependencyPath.isInitialized) throw IllegalStateException("Field dependencyPath is not thawed")
+
+        val lfiles = Files.walk(ldir)
+            .filter { Files.isRegularFile(it) && !Files.isHidden(it) && it.fileName.toString().endsWith(".java") }
+            .map { it.toAbsolutePath().toString() }
+            .toList()
+            .toTypedArray()
+
+        val rfiles = Files.walk(rdir)
+            .filter { Files.isRegularFile(it) && !Files.isHidden(it) && it.fileName.toString().endsWith(".java") }
+            .map { it.toAbsolutePath().toString() }
+            .toList()
+            .toTypedArray()
+
+        if (lfiles.isEmpty() || rfiles.isEmpty()) return emptyList()
+        val tmpResults = Files.createTempDirectory("plaggie-results")
+
+        val result = runJava(
+            "-cp",
+            "$jarPathStr:$dependencyPathStr",
+            "plag.parser.plaggie.PFShell",
+            *lfiles,
+            *rfiles
+        )
+
+        val lines = result.out.toList()
+            .takeLastWhile { it != "----RESULTS----" }
+
+        result.close()
+
+        val scores = mutableListOf<Triple<String, String, Double>>()
+        for (lfile in lfiles) {
+            for (rfile in rfiles) {
+                for (line in lines) {
+                    if (line.contains(lfile) && line.contains(rfile)) {
+                        val lpath = Paths.get(lfile)
+                        val rpath = Paths.get(rfile)
+
+                        val lf = ldir.relativize(lpath).toString()
+                        val rf = rdir.relativize(rpath).toString()
+                        val sim = line.split(":").last().toDouble()
+
+                        scores.add(Triple(lf, rf, sim))
+                    }
+                }
+            }
+        }
+
+        return scores
+    }
+}
+
+fun main() {
+    val tool = PlaggieSCPDT()
+    tool.thaw()
+
+    val root = Paths.get("/media/haydencheers/Data/PrEP/datasets/COMP2240_2018_A1")
+
+    val dirs = Files.list(root)
+        .filter { Files.isDirectory(it) && !Files.isHidden(it) }
+        .toList()
+
+    for (l in 0 until dirs.size) {
+        val ldir = dirs[l]
+
+        for (r in l+1 until dirs.size) {
+            val rdir = dirs[r]
+
+            val res = tool.evaluateAllFiles(ldir, rdir)
+            Unit
+        }
+    }
+
+    tool.close()
 }
