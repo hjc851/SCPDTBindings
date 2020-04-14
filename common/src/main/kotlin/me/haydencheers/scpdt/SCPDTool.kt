@@ -49,8 +49,6 @@ interface SCPDTool: AutoCloseable {
                 CompletableFuture.runAsync(Runnable {
                     val sim = this.evaluatePairwise(ldir, rdir)
                     submissionPairwiseResults.add(Triple(lname, rname, sim))
-
-
                 }, executor).whenComplete { void, throwable ->
                     sem.release()
                     throwable?.printStackTrace()

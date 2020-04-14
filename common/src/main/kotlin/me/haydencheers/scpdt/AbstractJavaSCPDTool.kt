@@ -9,6 +9,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import java.util.stream.Stream
 
 abstract class AbstractJavaSCPDTool: SCPDTool {
@@ -57,18 +58,25 @@ abstract class AbstractJavaSCPDTool: SCPDTool {
         return JavaResult (
             result,
             stdout.bufferedReader().lines(),
-            stderr.bufferedReader().lines()
+            stderr.bufferedReader().lines(),
+            stdout,
+            stderr
         )
     }
 
     data class JavaResult (
         val exitCode: Int,
         val out: Stream<String>,
-        val err: Stream<String>
+        val err: Stream<String>,
+        private val tmpOut: File,
+        private val tmpErr: File
     ): Closeable {
         override fun close() {
             out.close()
             err.close()
+
+            tmpOut.delete()
+            tmpErr.delete()
         }
     }
 }

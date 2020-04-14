@@ -17,9 +17,13 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
         get() = "JPlag"
 
     private val jarResourceName = "/jplag-2.12.1-SNAPSHOT-jar-with-dependencies.jar"
+    private val clsResourceName = "/JPlagSafe.class"
 
     private lateinit var jarPath: Path
     private lateinit var jarPathStr: String
+
+    private lateinit var clsPath: Path
+    private lateinit var clsPathStr: String
 
     override fun thaw(path: Path) {
         val jarResource = this.javaClass.getResourceAsStream(jarResourceName)
@@ -27,6 +31,13 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
         this.jarPathStr = jarPath.toAbsolutePath().toString()
         Files.copy(jarResource, jarPath)
         jarResource.close()
+
+        val clsResource = this.javaClass.getResourceAsStream(clsResourceName)
+        this.clsPath = path.resolve("jplag/JPlagSafe.class")
+        Files.createDirectory(path.resolve("jplag"))
+        this.clsPathStr = clsPath.toAbsolutePath().toString()
+        Files.copy(clsResource, clsPath)
+        clsResource.close()
     }
 
     override fun close() {
@@ -42,8 +53,9 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
         TempUtil.copyPairwiseInputsToTempDirectory(ldir, rdir).use { (tmp, lhs, rhs) ->
             // Run the jar
             val result = this.runJava(
-                "-jar",
-                jarPathStr,
+                "-cp",
+                "${clsPath.parent.toAbsolutePath().toString()}:$jarPathStr",
+                "jplag.JPlagSafe",
                 "-l",
                 "java19",
                 "-r",
@@ -132,9 +144,11 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
             .map { it.fileName.toString() }
             .toSet()
 
+
+
         val jplagout = result.out.toList()
         val scores = jplagout.dropLast(4)
-            .takeLast(count)
+            .takeLastWhile { it.startsWith("Comparing ") }
             .map(this::splitLine)
 
         result.close()
@@ -143,16 +157,20 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
     }
 
     private fun splitLine(line: String): Triple<String, String, Double> {
-        val cmp1 = line.removePrefix("Comparing ").split(": ")
+        try {
+            val cmp1 = line.removePrefix("Comparing ").split(": ")
 
-        val names = cmp1[0]
-        val cmp2 = names.split("-")
+            val names = cmp1[0]
+            val cmp2 = names.split("-")
 
-        val lhs = cmp2[0]
-        val rhs = cmp2[1]
-        val score = cmp1[1].toDouble()
+            val lhs = cmp2[0]
+            val rhs = cmp2[1]
+            val score = cmp1[1].toDouble()
 
-        return Triple(lhs, rhs, score)
+            return Triple(lhs, rhs, score)
+        } catch (e: Exception) {
+            throw e
+        }
     }
 
     override fun evaluateAllFiles(ldir: Path, rdir: Path): List<Triple<String, String, Double>> {
@@ -169,6 +187,8 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
             .map { it.toAbsolutePath().toString() }
             .toList()
             .toTypedArray()
+
+        if (lfiles.isEmpty() || rfiles.isEmpty()) return emptyList()
 
         val tmpResults = Files.createTempDirectory("jplag-results")
 
@@ -229,7 +249,7 @@ fun main() {
     val tool = JPlagSCPDT()
     tool.thaw()
 
-    val root = Paths.get("/home/haydencheers/Desktop/SENG1110A12017-ALL")
+    val root = Paths.get("/media/haydencheers/Data/PrEP/datasets/COMP2240_2018_A1")
     val result = tool.evaluateSubmissions(root)
 
     val dirs = Files.list(root)
@@ -239,12 +259,14 @@ fun main() {
     for (l in 0 until dirs.size) {
         val ldir = dirs[l]
 
-        for (r in l+1 until dirs.size) {
-            val rdir = dirs[r]
+        (l+1 until dirs.size).toList()
+            .parallelStream()
+            .forEach { r ->
+                val rdir = dirs[r]
 
-            val res = tool.evaluateAllFiles(ldir, rdir)
-            Unit
-        }
+                println("$l vs $r")
+                val res = tool.evaluateAllFiles(ldir, rdir)
+            }
     }
 
     tool.close()
