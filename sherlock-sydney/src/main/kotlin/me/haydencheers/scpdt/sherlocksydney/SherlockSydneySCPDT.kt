@@ -11,6 +11,7 @@ import java.nio.file.attribute.PosixFileAttributeView
 import java.nio.file.attribute.PosixFileAttributes
 import java.nio.file.attribute.PosixFilePermission
 import kotlin.math.max
+import kotlin.streams.toList
 
 class SherlockSydneySCPDT: SCPDTool {
     override val id: String
@@ -38,6 +39,8 @@ class SherlockSydneySCPDT: SCPDTool {
     }
 
     override fun evaluatePairwise(ldir: Path, rdir: Path): Double {
+        if (!::sherlockPath.isInitialized) throw IllegalStateException("Field sherlockPath is not thawed")
+
         if (Files.list(ldir).use { it.count() } == 0.toLong()) return 0.0
         if (Files.list(rdir).use { it.count() } == 0.toLong()) return 0.0
 
@@ -64,6 +67,63 @@ class SherlockSydneySCPDT: SCPDTool {
             val sim =  calculateSimilarity(output, dir.toAbsolutePath().toString())
 
             return sim
+        }
+    }
+
+    override fun evaluateAllFiles(ldir: Path, rdir: Path): List<Triple<String, String, Double>> {
+        TempUtil.copyPairwiseInputsToTempDirectory(ldir, rdir).use { (dir, lhs, rhs) ->
+            val out = Files.createTempFile(dir, "results", ".txt")
+
+            val proc = ProcessBuilder()
+                .command (
+                    sherlockPathStr,
+                    "-t",
+                    "0%",
+                    "-e",
+                    "java",
+                    "-r",
+                    lhs.toAbsolutePath().toString(),
+                    rhs.toAbsolutePath().toString()
+                )
+                .redirectOutput(out.toFile())
+                .start()
+
+            proc.waitFor()
+
+            val lfiles = Files.walk(lhs)
+                .filter { Files.isRegularFile(it) && !Files.isHidden(it) && it.fileName.toString().endsWith(".java") }
+                .map { it.toAbsolutePath().toString() }
+                .toList()
+                .toTypedArray()
+
+            val rfiles = Files.walk(rhs)
+                .filter { Files.isRegularFile(it) && !Files.isHidden(it) && it.fileName.toString().endsWith(".java") }
+                .map { it.toAbsolutePath().toString() }
+                .toList()
+                .toTypedArray()
+
+            if (lfiles.isEmpty() || rfiles.isEmpty()) return emptyList()
+
+            val output = Files.readAllLines(out)
+            val scores = mutableListOf<Triple<String, String, Double>>()
+            for (lfile in lfiles) {
+                for (rfile in rfiles) {
+                    for (line in output) {
+                        if (line.contains(lfile) && line.contains(rfile)) {
+                            val lpath = Paths.get(lfile)
+                            val rpath = Paths.get(rfile)
+
+                            val lf = lhs.relativize(lpath).toString()
+                            val rf = rhs.relativize(rpath).toString()
+                            val sim = line.split(";").last().removeSuffix("%").toDouble()
+
+                            scores.add(Triple(lf, rf, sim))
+                        }
+                    }
+                }
+            }
+
+            return scores
         }
     }
 
@@ -137,4 +197,28 @@ class SherlockSydneySCPDT: SCPDTool {
 
         return sim
     }
+}
+
+fun main() {
+    val tool = SherlockSydneySCPDT()
+    tool.thaw()
+
+    val root = Paths.get("/media/haydencheers/Data/PrEP/datasets/COMP2240_2018_A1")
+
+    val dirs = Files.list(root)
+        .filter { Files.isDirectory(it) && !Files.isHidden(it) }
+        .toList()
+
+    for (l in 0 until dirs.size) {
+        val ldir = dirs[l]
+
+        for (r in l+1 until dirs.size) {
+            val rdir = dirs[r]
+
+            val res = tool.evaluateAllFiles(ldir, rdir)
+        }
+    }
+
+    println("Done")
+    tool.close()
 }
