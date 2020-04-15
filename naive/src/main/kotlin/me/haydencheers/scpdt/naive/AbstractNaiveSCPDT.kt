@@ -5,6 +5,7 @@ import me.haydencheers.scpdt.naive.string.NaiveStringEditDistanceSCPDT
 import me.haydencheers.scpdt.naive.string.NaiveStringTilingSCPDT
 import me.haydencheers.scpdt.naive.token.NaiveTokenEditDistanceSCPDT
 import me.haydencheers.scpdt.naive.token.NaiveTokenTilingSCPDT
+import me.haydencheers.scpdt.naive.tree.NaiveTreeEditDistanceSCPDT
 import me.haydencheers.scpdt.util.TempUtil
 import java.nio.file.Files
 import java.nio.file.Path
@@ -140,7 +141,7 @@ abstract class AbstractNaiveSCPDT : AbstractJavaSCPDTool() {
 }
 
 fun main() {
-    val tool = NaiveStringEditDistanceSCPDT()
+    val tool = NaiveTreeEditDistanceSCPDT()
     tool.thaw()
 
     val root = Paths.get("/media/haydencheers/Data/PrEP/datasets/COMP2240_2018_A1")

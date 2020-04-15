@@ -64,12 +64,13 @@ class PlaggieSCPDT: AbstractJavaSCPDTool() {
             }
 
             // Get the console output
-            val output = result.out.toList()
-                .dropWhile { !it.startsWith("lhs:rhs") }
+            val out = result.out.toList()
+            val score = out.last()
+
             result.close()
 
-            val score = output.first().split(":")[2]
-            val sim = score.toDouble() * 100
+            val scoreVal = score.split(":")[2]
+            val sim = scoreVal.toDouble() * 100
             return sim
         }
     }
@@ -132,7 +133,8 @@ fun main() {
     val tool = PlaggieSCPDT()
     tool.thaw()
 
-    val root = Paths.get("/media/haydencheers/Data/PrEP/datasets/COMP2240_2018_A1")
+    val root = Paths.get("/media/haydencheers/Data/PrEP/datasets/Algorithms")
+    val sims = tool.evaluateSubmissions(root)
 
     val dirs = Files.list(root)
         .filter { Files.isDirectory(it) && !Files.isHidden(it) }
