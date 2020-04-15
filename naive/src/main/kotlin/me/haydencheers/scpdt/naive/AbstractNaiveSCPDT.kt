@@ -1,6 +1,7 @@
 package me.haydencheers.scpdt.naive
 
 import me.haydencheers.scpdt.AbstractJavaSCPDTool
+import me.haydencheers.scpdt.naive.graph.NaivePDGEditDistanceSCPDT
 import me.haydencheers.scpdt.naive.string.NaiveStringEditDistanceSCPDT
 import me.haydencheers.scpdt.naive.string.NaiveStringTilingSCPDT
 import me.haydencheers.scpdt.naive.token.NaiveTokenEditDistanceSCPDT
@@ -141,10 +142,10 @@ abstract class AbstractNaiveSCPDT : AbstractJavaSCPDTool() {
 }
 
 fun main() {
-    val tool = NaiveTreeEditDistanceSCPDT()
+    val tool = NaivePDGEditDistanceSCPDT()
     tool.thaw()
 
-    val root = Paths.get("/media/haydencheers/Data/PrEP/datasets/COMP2240_2018_A1")
+    val root = Paths.get("/media/haydencheers/Data/PrEP/datasets/Algorithms")
 
     val dirs = Files.list(root)
         .filter { Files.isDirectory(it) && !Files.isHidden(it) }
