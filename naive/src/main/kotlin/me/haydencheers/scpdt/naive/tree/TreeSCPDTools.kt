@@ -9,6 +9,9 @@ class NaiveTreeEditDistanceSCPDT: AbstractNaiveSCPDT() {
     override val className: String
         get() = "frontend.NaiveTreeEditDistance"
 
+    override val filewiseClassName: String
+        get() = "frontend.FilewiseNaiveTreeEditDistance"
+
     override val threshold: Int
         get() = 0
 }

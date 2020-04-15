@@ -10,6 +10,9 @@ class NaiveTokenTilingSCPDT (
 
     override val className: String
         get() = "frontend.NaiveTokenTiling"
+
+    override val filewiseClassName: String
+        get() = "frontend.FilewiseNaiveTokenTiling"
 }
 
 class NaiveTokenEditDistanceSCPDT: AbstractNaiveSCPDT() {
@@ -18,6 +21,9 @@ class NaiveTokenEditDistanceSCPDT: AbstractNaiveSCPDT() {
 
     override val className: String
         get() = "frontend.NaiveTokenEditDistance"
+
+    override val filewiseClassName: String
+        get() = "frontend.FilewiseNaiveTokenEditDistance"
 
     override val threshold: Int
         get() = 0

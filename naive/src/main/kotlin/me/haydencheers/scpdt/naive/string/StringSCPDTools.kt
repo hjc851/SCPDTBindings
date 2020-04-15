@@ -10,6 +10,9 @@ class NaiveStringTilingSCPDT (
 
     override val className: String
         get() = "frontend.NaiveStringTiling"
+
+    override val filewiseClassName: String
+        get() = "frontend.FilewiseNaiveStringTiling"
 }
 
 class NaiveStringEditDistanceSCPDT: AbstractNaiveSCPDT() {
@@ -18,6 +21,9 @@ class NaiveStringEditDistanceSCPDT: AbstractNaiveSCPDT() {
 
     override val className: String
         get() = "frontend.NaiveStringEditDistance"
+
+    override val filewiseClassName: String
+        get() = "frontend.FilewiseNaiveStringEditDistance"
 
     override val threshold: Int
         get() = 0

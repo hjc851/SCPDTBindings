@@ -6,6 +6,9 @@ class NaivePDGEditDistanceSCPDT: AbstractNaiveSCPDT() {
     override val className: String
         get() = "frontend.NaivePDGEditDistance"
 
+    override val filewiseClassName: String
+        get() = "frontend.FilewiseNaivePDGEditDistance"
+
     override val threshold: Int
         get() = 0
 
