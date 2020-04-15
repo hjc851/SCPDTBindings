@@ -7,7 +7,7 @@ class NaivePDGEditDistanceSCPDT: AbstractNaiveSCPDT() {
         get() = "frontend.NaivePDGEditDistance"
 
     override val filewiseClassName: String
-        get() = "frontend.FilewiseNaivePDFEditDistance"
+        get() = "frontend.FilewiseNaivePDGEditDistance"
 
     override val threshold: Int
         get() = 0
