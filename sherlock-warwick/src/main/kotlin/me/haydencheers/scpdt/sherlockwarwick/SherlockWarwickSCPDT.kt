@@ -130,6 +130,111 @@ class SherlockWarwickSCPDT: AbstractJavaSCPDTool() {
         }
     }
 
+    override fun evaluateAllFiles(ldir: Path, rdir: Path): List<Triple<String, String, Double>> {
+        if (!::sherlockJar.isInitialized) throw IllegalStateException("Field sherlockJar is not thawed")
+        if (!::shellJar.isInitialized) throw IllegalStateException("Field shellJar is not thawed")
+
+        TempUtil.copyPairwiseInputsToTempDirectory(ldir, rdir).use { (tmp, lhs, rhs) ->
+            val lJavaFiles = Files.walk(lhs)
+                .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+                .use { it.toList() }
+                .map { it.toAbsolutePath().toString() }
+
+            val rJavaFiles = Files.walk(rhs)
+                .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+                .use { it.toList() }
+                .map { it.toAbsolutePath().toString() }
+
+            val result = runJava(
+                "-cp",
+                "$sherlockJarStr:$shellJarStr",
+                "uk.ac.warwick.dcs.cobalt.sherlock.SWShell",
+                tmp.toAbsolutePath().toString(),
+                "-p",
+                "-d",
+                "-v"
+            )
+
+            if (lJavaFiles.isEmpty() || rJavaFiles.isEmpty()) return emptyList()
+
+            // Handle error
+            if (result.exitCode != 0) {
+                val out = result.out.toList()
+                val err = result.err.toList()
+
+                result.close()
+                throw IllegalStateException("Received error code ${result.exitCode}")
+            }
+
+            // Get the console output
+            val output = result.out.toList()
+            result.close()
+
+            val mappings = output.dropWhile { it != "====File Id Mappings====" }
+                .drop(1)
+                .dropLastWhile { it != "====Results====" }
+                .dropLast(1)
+
+            val fileIdMappings = mappings.map { it.split(":") }
+                .map { it[1] to it[0] }
+                .toMap()
+
+            val results = output.takeLastWhile { it != "====Results====" }
+
+            val mappedResults = results.map { it.split(":") }
+                .mapNotNull {
+                    val l = it[0].split("/")
+                        .last()
+                        .split(".")
+                        .dropLast(1)
+                        .joinToString(".")
+                        .let { fileIdMappings.getValue(it) }
+
+                    val r = it[1].split("/")
+                        .last()
+                        .split(".")
+                        .dropLast(1)
+                        .joinToString(".")
+                        .let { fileIdMappings.getValue(it) }
+
+                    val sim = it[2].toDouble()
+
+                    if (l.contains("/lhs/") && r.contains("/rhs/")) {
+                        return@mapNotNull Triple(l, r, sim)
+                    } else if (l.contains("/rhs/") && r.contains("/lhs/")) {
+                        return@mapNotNull Triple(r, l, sim)
+                    } else {
+                        return@mapNotNull null
+                    }
+                }.groupBy { it.first to it.second }
+                .map { Triple(it.key.first, it.key.second, it.value.map { it.third }.max() ?: 0.0) }
+
+            val allResultsMap = mutableMapOf<String, MutableMap<String, Double>>()
+            for (lfile in lJavaFiles) {
+                for (rfile in rJavaFiles) {
+                    allResultsMap.getOrPut(lfile) {mutableMapOf()} [rfile] = 0.0
+                }
+            }
+
+            for (result in mappedResults) {
+                allResultsMap.getValue(result.first)
+                    .put(result.second, result.third)
+            }
+
+            val allResults = allResultsMap.flatMap { (l, values) ->
+                val lpath = Paths.get(l)
+
+                values.map { (r, score) ->
+                    val rpath = Paths.get(r)
+
+                    Triple(lhs.relativize(lpath).toString(), rhs.relativize(rpath).toString(), score)
+                }
+            }
+
+            return allResults
+        }
+    }
+
     private fun calculateSim(
         lJavaFiles: List<String>,
         rJavaFiles: List<String>,
@@ -174,4 +279,28 @@ class SherlockWarwickSCPDT: AbstractJavaSCPDTool() {
 
         return sim
     }
+}
+
+fun main() {
+    val tool = SherlockWarwickSCPDT()
+    tool.thaw()
+
+    val root = Paths.get("/media/haydencheers/Data/PrEP/datasets/COMP2240_2018_A1")
+
+    val dirs = Files.list(root)
+        .filter { Files.isDirectory(it) && !Files.isHidden(it) }
+        .toList()
+
+    for (l in 0 until dirs.size) {
+        val ldir = dirs[l]
+
+        for (r in l+1 until dirs.size) {
+            val rdir = dirs[r]
+
+            val res = tool.evaluateAllFiles(ldir, rdir)
+        }
+    }
+
+    println("Done")
+    tool.close()
 }
