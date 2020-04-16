@@ -37,8 +37,8 @@ abstract class AbstractJavaSCPDTool: SCPDTool {
 
     protected fun runJava(vararg command: String, env: Map<String, String> = mutableMapOf(), asyncCallback: ((InputStream, OutputStream) -> Unit)? = null): JavaResult {
 
-        val stdout = File.createTempFile("scpdt-java-exec", "io")
-        val stderr = File.createTempFile("scpdt-java-exec", "io")
+        val stdout = File.createTempFile("scpdt-java-exec-out", "io")
+        val stderr = File.createTempFile("scpdt-java-exec-err", "io")
 
         val proc = ProcessBuilder()
             .apply { environment().putAll(env) }

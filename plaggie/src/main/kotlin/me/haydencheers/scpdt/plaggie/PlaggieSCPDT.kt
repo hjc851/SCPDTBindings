@@ -92,7 +92,6 @@ class PlaggieSCPDT: AbstractJavaSCPDTool() {
             .toTypedArray()
 
         if (lfiles.isEmpty() || rfiles.isEmpty()) return emptyList()
-        val tmpResults = Files.createTempDirectory("plaggie-results")
 
         val result = runJava(
             "-cp",
