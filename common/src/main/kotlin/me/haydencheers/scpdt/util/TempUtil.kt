@@ -29,13 +29,15 @@ object TempUtil {
         // Copy left
         Files.walk(ldir)
             .forEachOrdered { src ->
-                Files.copy(src, lhs.resolve(ldir.relativize(src)))
+                if (Files.isDirectory(src) || Files.isRegularFile(src) && src.fileName.toString().endsWith(".java"))
+                    Files.copy(src, lhs.resolve(ldir.relativize(src)))
             }
 
         // Copy right
         Files.walk(rdir)
             .forEachOrdered { src ->
-                Files.copy(src, rhs.resolve(rdir.relativize(src)))
+                if (Files.isDirectory(src) || Files.isRegularFile(src) && src.fileName.toString().endsWith(".java"))
+                    Files.copy(src, rhs.resolve(rdir.relativize(src)))
             }
 
         return TempInputTriple(tmp, lhs, rhs)
