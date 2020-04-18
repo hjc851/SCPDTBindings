@@ -1,6 +1,8 @@
 package me.haydencheers.scpdt.naive.graph
 
 import me.haydencheers.scpdt.naive.AbstractNaiveSCPDT
+import java.nio.file.Path
+import java.util.concurrent.ExecutorService
 
 class NaivePDGEditDistanceSCPDT: AbstractNaiveSCPDT() {
     override val className: String

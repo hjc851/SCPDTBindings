@@ -18,6 +18,8 @@ abstract class AbstractJavaSCPDTool: SCPDTool {
         val java: Path
         val javaStr: String
 
+        var mxHeap: String? = null
+
         init {
             val java = when {
                 System.getenv().containsKey("JAVA_HOME") -> Paths.get(System.getenv("JAVA_HOME")).resolve("bin/java")
@@ -34,15 +36,18 @@ abstract class AbstractJavaSCPDTool: SCPDTool {
         }
     }
 
-
     protected fun runJava(vararg command: String, env: Map<String, String> = mutableMapOf(), asyncCallback: ((InputStream, OutputStream) -> Unit)? = null): JavaResult {
-
         val stdout = File.createTempFile("scpdt-java-exec-out", "io")
         val stderr = File.createTempFile("scpdt-java-exec-err", "io")
 
+        val cmd = mutableListOf<String>()
+        cmd.add(javaStr)
+        if (mxHeap != null) cmd.add("-Xmx${mxHeap}")
+        cmd.addAll(command)
+
         val proc = ProcessBuilder()
             .apply { environment().putAll(env) }
-            .command(javaStr, *command)
+            .command(cmd)
             .redirectOutput(stdout)
             .redirectError(stderr)
             .start()
