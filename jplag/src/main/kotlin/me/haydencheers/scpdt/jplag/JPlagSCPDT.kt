@@ -142,7 +142,7 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
             val err = result.err.toList()
 
             result.close()
-            throw IllegalStateException("Received error code ${result.exitCode}")
+            throw JPlagException("Received error code ${result.exitCode}", result.exitCode, out, err)
         }
 
         val ids = Files.list(dir)
@@ -220,7 +220,7 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
             val err = result.err.toList()
 
             result.close()
-            throw IllegalStateException("Received error code ${result.exitCode}")
+            throw JPlagException("Received error code ${result.exitCode}", result.exitCode, out, err)
         }
 
         val comparingLines = result.out.toList()
