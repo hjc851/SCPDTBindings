@@ -44,6 +44,13 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
         Files.delete(jarPath)
     }
 
+    class JPlagException (
+        msg: String,
+        val exitCode: Int,
+        val out: List<String>,
+        val err: List<String>
+    ): Exception(msg)
+
     override fun evaluatePairwise(ldir: Path, rdir: Path): Double {
         if (!::jarPath.isInitialized) throw IllegalStateException("Field jarPath is not thawed")
 
@@ -78,7 +85,7 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
                     if (line.contains("Not enough valid submissions"))
                         return -1.0
 
-                throw IllegalStateException("Received error code ${result.exitCode}")
+                throw JPlagException("Received error code ${result.exitCode}", result.exitCode, out, err)
             }
 
             // Get the console output
