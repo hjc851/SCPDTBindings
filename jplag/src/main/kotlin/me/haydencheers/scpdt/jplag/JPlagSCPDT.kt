@@ -60,8 +60,8 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
         TempUtil.copyPairwiseInputsToTempDirectory(ldir, rdir).use { (tmp, lhs, rhs) ->
             // Run the jar
             val result = this.runJava(
-                "-cp",
-                "${clsPath.parent.parent.toAbsolutePath().toString()}:$jarPathStr",
+                "-jar",
+                jarPathStr,
                 "jplag.JPlagSafe",
                 "-l",
                 "java19",
