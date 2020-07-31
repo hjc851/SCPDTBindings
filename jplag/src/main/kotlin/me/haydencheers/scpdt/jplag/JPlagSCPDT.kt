@@ -62,7 +62,7 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
             val result = this.runJava(
                 "-jar",
                 jarPathStr,
-                "jplag.JPlagSafe",
+//                "jplag.JPlagSafe",
                 "-l",
                 "java19",
                 "-r",
