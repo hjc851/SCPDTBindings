@@ -1,6 +1,8 @@
 package me.haydencheers.scpdt.naive
 
 import me.haydencheers.scpdt.AbstractJavaSCPDTool
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionFuture
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionResult
 import me.haydencheers.scpdt.naive.graph.NaivePDGEditDistanceSCPDT
 import me.haydencheers.scpdt.naive.string.NaiveStringEditDistanceSCPDT
 import me.haydencheers.scpdt.naive.string.NaiveStringTilingSCPDT
@@ -8,6 +10,7 @@ import me.haydencheers.scpdt.naive.token.NaiveTokenEditDistanceSCPDT
 import me.haydencheers.scpdt.naive.token.NaiveTokenTilingSCPDT
 import me.haydencheers.scpdt.naive.tree.NaiveTreeEditDistanceSCPDT
 import me.haydencheers.scpdt.util.TempUtil
+import java.io.Closeable
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -138,6 +141,73 @@ abstract class AbstractNaiveSCPDT : AbstractJavaSCPDTool() {
             result.close()
             return scores
         }
+    }
+
+    //
+    //  Async
+    //
+
+    override fun executePairwiseAsync(ldir: Path, rdir: Path): SCPDToolPairwiseExecutionFuture {
+        if (!::jarPath.isInitialized) throw IllegalStateException("Tool is not thawed")
+
+        if (Files.list(ldir).use { it.count() } == 0.toLong()) throw IllegalStateException("LHS is empty")
+        if (Files.list(rdir).use { it.count() } == 0.toLong()) throw IllegalStateException("RHS is empty")
+
+        val tmpHandle = TempUtil.copyPairwiseInputsToTempDirectory(ldir, rdir)
+        val (tmp, lhs, rhs) = tmpHandle
+
+        val lJavaFiles = Files.walk(lhs)
+            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+            .use { it.toList() }
+            .map { it.toAbsolutePath().toString() }
+
+        val rJavaFiles = Files.walk(rhs)
+            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+            .use { it.toList() }
+            .map { it.toAbsolutePath().toString() }
+
+        if (lJavaFiles.isEmpty() || rJavaFiles.isEmpty()) throw IllegalStateException("LHS or RHS is empty")
+
+        val procHandle = runJavaAsync (
+            "-cp",
+            jarPathStr,
+            className,
+            lhs.toAbsolutePath().toString(),
+            rhs.toAbsolutePath().toString(),
+            env = mapOf("THRESHOLD" to threshold.toString())
+        )
+
+        return SCPDToolPairwiseExecutionFuture(procHandle.proc, JavaAsyncBundle(tmpHandle, procHandle), this)
+    }
+
+    override fun complete(handle: Process, bundle: Any): SCPDToolPairwiseExecutionResult {
+        bundle as JavaAsyncBundle
+
+        val proc = bundle.procHandle.proc
+        val stdout = bundle.procHandle.stdout
+        val stderr = bundle.procHandle.stderr
+
+        if (proc.exitValue() != 0) {
+            return SCPDToolPairwiseExecutionResult.Error("Received error code ${proc.exitValue()}")
+        }
+
+        val out = stdout.readLines()
+        if (out.size != 2) {
+            throw IllegalStateException("Invalid output, expecting two lines")
+        }
+
+        val sim = out.drop(1)
+            .single()
+            .split(":")
+            .last()
+            .toDouble()
+
+        return SCPDToolPairwiseExecutionResult.Success(sim * 100)
+    }
+
+    override fun close(handle: Process, bundle: Any) {
+        handle.destroy()
+        (bundle as? Closeable)?.close()
     }
 }
 

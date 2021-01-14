@@ -1,8 +1,13 @@
 package me.haydencheers.scpdt.sherlocksydney
 
+import me.haydencheers.scpdt.AbstractJavaSCPDTool
 import me.haydencheers.scpdt.SCPDTool
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionFuture
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionResult
 import me.haydencheers.scpdt.common.HungarianAlgorithm
 import me.haydencheers.scpdt.util.TempUtil
+import java.io.Closeable
+import java.io.File
 import java.lang.IllegalArgumentException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -196,6 +201,77 @@ class SherlockSydneySCPDT: SCPDTool {
             .average()
 
         return sim
+    }
+
+    //
+    // Async
+    //
+
+    data class SSAsyncBundle(
+        val tmpHandle: TempUtil.TempInputTriple,
+        val procHandle: Process,
+        val resultsFile: Path
+    ): Closeable {
+        override fun close() {
+            Files.deleteIfExists(resultsFile)
+            tmpHandle.close()
+            procHandle.destroy()
+        }
+    }
+
+    override fun executePairwiseAsync(ldir: Path, rdir: Path): SCPDToolPairwiseExecutionFuture {
+        if (!::sherlockPath.isInitialized) throw IllegalStateException("Field sherlockPath is not thawed")
+
+        if (Files.list(ldir).use { it.count() } == 0.toLong()) throw IllegalStateException("LHS is empty")
+        if (Files.list(rdir).use { it.count() } == 0.toLong()) throw IllegalStateException("RHS is empty")
+
+        val tmpHandle = TempUtil.copyPairwiseInputsToTempDirectory(ldir, rdir)
+        val (tmp, lhs, rhs) = tmpHandle
+
+        val resultsFile = Files.createTempFile(tmp, "results", ".txt")
+
+        val proc = ProcessBuilder()
+            .command (
+                sherlockPathStr,
+                "-t",
+                "0%",
+                "-e",
+                "java",
+                "-r",
+                lhs.toAbsolutePath().toString(),
+                rhs.toAbsolutePath().toString()
+            )
+            .redirectOutput(resultsFile.toFile())
+            .start()
+
+        return SCPDToolPairwiseExecutionFuture(
+            proc,
+            SSAsyncBundle(tmpHandle, proc, resultsFile),
+            this
+        )
+    }
+
+    override fun complete(handle: Process, bundle: Any): SCPDToolPairwiseExecutionResult {
+        bundle as SSAsyncBundle
+
+        val proc = handle
+
+        if (proc.exitValue() != 0) {
+            return SCPDToolPairwiseExecutionResult.Error("Received error code ${proc.exitValue()}")
+        }
+
+        val out = bundle.resultsFile
+        val tmp = bundle.tmpHandle.tempDir
+
+        val output = Files.readAllLines(out)
+        val sim =  calculateSimilarity(output, tmp.toAbsolutePath().toString())
+
+        return SCPDToolPairwiseExecutionResult.Success(sim)
+    }
+
+    override fun close(handle: Process, bundle: Any) {
+        handle.destroy()
+        (bundle as? Closeable)?.close()
     }
 }
 

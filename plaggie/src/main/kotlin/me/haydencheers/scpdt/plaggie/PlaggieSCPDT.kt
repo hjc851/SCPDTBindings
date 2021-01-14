@@ -1,7 +1,10 @@
 package me.haydencheers.scpdt.plaggie
 
 import me.haydencheers.scpdt.AbstractJavaSCPDTool
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionFuture
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionResult
 import me.haydencheers.scpdt.util.TempUtil
+import java.io.Closeable
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -125,6 +128,58 @@ class PlaggieSCPDT: AbstractJavaSCPDTool() {
         }
 
         return scores
+    }
+
+    //
+    //  Async
+    //
+
+    override fun executePairwiseAsync(ldir: Path, rdir: Path): SCPDToolPairwiseExecutionFuture {
+        if (!::jarPath.isInitialized) throw IllegalStateException("Field jarPath is not thawed")
+
+        if (Files.list(ldir).use { it.count() } == 0.toLong()) throw IllegalStateException("LHS is empty")
+        if (Files.list(rdir).use { it.count() } == 0.toLong()) throw IllegalStateException("RHS is empty")
+
+        val tmpHandle = TempUtil.copyPairwiseInputsToTempDirectory(ldir, rdir)
+        val tmp = tmpHandle.tempDir
+
+        val procHandle = runJavaAsync(
+            "-cp",
+            "$jarPathStr:$dependencyPathStr",
+            "plag.parser.plaggie.PShell",
+            tmp.toAbsolutePath().toString()
+        )
+
+        return SCPDToolPairwiseExecutionFuture(
+            procHandle.proc,
+            JavaAsyncBundle(tmpHandle, procHandle),
+            this
+        )
+    }
+
+    override fun complete(handle: Process, bundle: Any): SCPDToolPairwiseExecutionResult {
+        val bundle = bundle as JavaAsyncBundle
+
+        val proc = bundle.procHandle.proc
+        val stdout = bundle.procHandle.stdout
+        val stderr = bundle.procHandle.stderr
+
+        if (proc.exitValue() != 0) {
+            return SCPDToolPairwiseExecutionResult.Error("Received error code ${proc.exitValue()}")
+        }
+
+        // Get the console output
+        val out = stdout.readLines()
+        val score = out.last()
+
+        val scoreVal = score.split(":")[2]
+        val sim = scoreVal.toDouble() * 100
+        return SCPDToolPairwiseExecutionResult.Success(sim)
+    }
+
+    override fun close(handle: Process, bundle: Any) {
+        handle.destroy()
+        (bundle as? Closeable)?.close()
     }
 }
 

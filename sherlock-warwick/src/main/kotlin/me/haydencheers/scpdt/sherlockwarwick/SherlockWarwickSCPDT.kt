@@ -1,8 +1,11 @@
 package me.haydencheers.scpdt.sherlockwarwick
 
 import me.haydencheers.scpdt.AbstractJavaSCPDTool
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionFuture
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionResult
 import me.haydencheers.scpdt.common.HungarianAlgorithm
 import me.haydencheers.scpdt.util.TempUtil
+import java.io.Closeable
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -278,6 +281,125 @@ class SherlockWarwickSCPDT: AbstractJavaSCPDTool() {
             .average()
 
         return sim
+    }
+
+    //
+    //  Async
+    //
+
+    override fun executePairwiseAsync(ldir: Path, rdir: Path): SCPDToolPairwiseExecutionFuture {
+        if (!::sherlockJar.isInitialized) throw IllegalStateException("Field sherlockJar is not thawed")
+        if (!::shellJar.isInitialized) throw IllegalStateException("Field shellJar is not thawed")
+
+        if (Files.list(ldir).use { it.count() } == 0.toLong()) throw IllegalStateException("LHS is empty")
+        if (Files.list(rdir).use { it.count() } == 0.toLong()) throw IllegalStateException("RHS is empty")
+
+        val tmpHandle = TempUtil.copyPairwiseInputsToTempDirectory(ldir, rdir)
+        val (tmp, lhs, rhs) = tmpHandle
+
+        val lJavaFiles = Files.walk(lhs)
+            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+            .use { it.toList() }
+            .map { it.toAbsolutePath().toString() }
+
+        val rJavaFiles = Files.walk(rhs)
+            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+            .use { it.toList() }
+            .map { it.toAbsolutePath().toString() }
+
+        if (lJavaFiles.isEmpty() || rJavaFiles.isEmpty()) return throw IllegalStateException("LHS or RHS is empty")
+
+        val procHandle = runJavaAsync(
+            "-cp",
+            "$sherlockJarStr:$shellJarStr",
+            "uk.ac.warwick.dcs.cobalt.sherlock.SWShell",
+            tmp.toAbsolutePath().toString(),
+            "-p",
+            "-d",
+            "-v"
+        )
+
+        return SCPDToolPairwiseExecutionFuture(
+            procHandle.proc,
+            JavaAsyncBundle(tmpHandle, procHandle),
+            this
+        )
+    }
+
+    override fun complete(handle: Process, bundle: Any): SCPDToolPairwiseExecutionResult {
+        val bundle = bundle as JavaAsyncBundle
+
+        val proc = bundle.procHandle.proc
+        val stdout = bundle.procHandle.stdout
+        val stderr = bundle.procHandle.stderr
+
+        if (proc.exitValue() != 0) {
+            return SCPDToolPairwiseExecutionResult.Error("Received error code ${proc.exitValue()}")
+        }
+
+        val (tmp, lhs, rhs) = bundle.tmpHandle
+        val lJavaFiles = Files.walk(lhs)
+            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+            .use { it.toList() }
+            .map { it.toAbsolutePath().toString() }
+
+        val rJavaFiles = Files.walk(rhs)
+            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+            .use { it.toList() }
+            .map { it.toAbsolutePath().toString() }
+
+        // Get the console output
+        val output = stdout.readLines()
+
+        val mappings = output.dropWhile { it != "====File Id Mappings====" }
+            .drop(1)
+            .dropLastWhile { it != "====Results====" }
+            .dropLast(1)
+
+        val fileIdMappings = mappings.map { it.split(":") }
+            .map { it[1] to it[0] }
+            .toMap()
+
+        val results = output.takeLastWhile { it != "====Results====" }
+
+        val mappedResults = results.map { it.split(":") }
+            .mapNotNull {
+                val l = it[0].split("/")
+                    .last()
+                    .split(".")
+                    .dropLast(1)
+                    .joinToString(".")
+                    .let { fileIdMappings.getValue(it) }
+
+                val r = it[1].split("/")
+                    .last()
+                    .split(".")
+                    .dropLast(1)
+                    .joinToString(".")
+                    .let { fileIdMappings.getValue(it) }
+
+                val sim = it[2].toDouble()
+
+                if (l.contains("/lhs/") && r.contains("/rhs/")) {
+                    return@mapNotNull Triple(l, r, sim)
+                } else if (l.contains("/rhs/") && r.contains("/lhs/")) {
+                    return@mapNotNull Triple(r, l, sim)
+                } else {
+                    return@mapNotNull null
+                }
+            }.groupBy { it.first to it.second }
+            .map { Triple(it.key.first, it.key.second, it.value.map { it.third }.max() ?: 0.0) }
+
+        if (mappedResults.isEmpty())
+            return SCPDToolPairwiseExecutionResult.Error("No mappings between files")
+
+        val sim = calculateSim(lJavaFiles, rJavaFiles, mappedResults)
+        return SCPDToolPairwiseExecutionResult.Success(sim)
+    }
+
+    override fun close(handle: Process, bundle: Any) {
+        handle.destroy()
+        (bundle as? Closeable)?.close()
     }
 }
 

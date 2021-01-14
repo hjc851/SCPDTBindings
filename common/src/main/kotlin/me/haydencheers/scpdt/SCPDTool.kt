@@ -7,7 +7,7 @@ import java.util.*
 import java.util.concurrent.*
 import kotlin.streams.toList
 
-interface SCPDTool: AutoCloseable {
+interface SCPDTool: AutoCloseable, SCPDToolPairwiseExecutionCompletionDelegate {
 
     companion object {
         val SHARED_EXECUTION_POOL: ExecutorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() / 2)
@@ -72,6 +72,8 @@ interface SCPDTool: AutoCloseable {
      * @rdir: Root folder of rhs submission
      */
     fun evaluatePairwise(ldir: Path, rdir: Path): Double
+
+    fun executePairwiseAsync(ldir: Path, rdir: Path): SCPDToolPairwiseExecutionFuture
 
     /***
      * Evaluates all the pairwise similarities of files in lhs with rhs

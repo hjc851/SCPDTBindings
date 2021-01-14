@@ -1,5 +1,6 @@
 package me.haydencheers.scpdt
 
+import me.haydencheers.scpdt.util.TempUtil
 import java.io.Closeable
 import java.io.File
 import java.io.InputStream
@@ -34,6 +35,50 @@ abstract class AbstractJavaSCPDTool: SCPDTool {
             this.java = java
             this.javaStr = java.toAbsolutePath().toString()
         }
+    }
+
+    data class JavaAsyncBundle(
+        val tmpHandle: TempUtil.TempInputTriple,
+        val procHandle: JavaExecAsyncHandle
+    ): Closeable {
+        override fun close() {
+            tmpHandle.close()
+            procHandle.close()
+        }
+    }
+
+    data class JavaExecAsyncHandle(
+        val proc: Process,
+        val stdout: File,
+        val stderr: File
+    ): Closeable {
+        override fun close() {
+            stdout.delete()
+            stderr.delete()
+        }
+    }
+
+    protected fun runJavaAsync(
+        vararg command: String, env: Map<String, String> = mutableMapOf()
+    ): JavaExecAsyncHandle {
+        val stdout = File.createTempFile("scpdt-java-exec-out", "io")
+        val stderr = File.createTempFile("scpdt-java-exec-err", "io")
+
+        val cmd = mutableListOf<String>()
+        cmd.add(javaStr)
+        if (mxHeap != null) cmd.add("-Xmx${mxHeap}")
+        cmd.addAll(command)
+
+        val proc = ProcessBuilder()
+            .apply { environment().putAll(env) }
+            .command(cmd)
+            .redirectOutput(stdout)
+            .redirectError(stderr)
+            .start()
+
+        return JavaExecAsyncHandle(
+            proc, stdout, stderr
+        )
     }
 
     protected fun runJava(vararg command: String, env: Map<String, String> = mutableMapOf(), asyncCallback: ((InputStream, OutputStream) -> Unit)? = null): JavaResult {

@@ -1,14 +1,15 @@
 package me.haydencheers.scpdt.jplag
 
 import me.haydencheers.scpdt.AbstractJavaSCPDTool
-import me.haydencheers.scpdt.SCPDTool
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionFuture
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionResult
 import me.haydencheers.scpdt.util.CopyUtils
 import me.haydencheers.scpdt.util.TempUtil
+import java.io.Closeable
 import java.nio.file.Path
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.concurrent.ExecutorService
-import java.util.stream.Collectors
 import kotlin.math.roundToInt
 import kotlin.streams.toList
 
@@ -248,6 +249,68 @@ class JPlagSCPDT: AbstractJavaSCPDTool() {
         }
 
         return scores
+    }
+
+    //
+    //  Async
+    //
+
+    override fun executePairwiseAsync(ldir: Path, rdir: Path): SCPDToolPairwiseExecutionFuture {
+        if (!::jarPath.isInitialized) throw IllegalStateException("Field jarPath is not thawed")
+
+        if (Files.list(ldir).use { it.count() } == 0.toLong()) throw IllegalStateException("LHS is empty")
+        if (Files.list(rdir).use { it.count() } == 0.toLong()) throw IllegalStateException("RHS is empty")
+
+        val tmpHandle = TempUtil.copyPairwiseInputsToTempDirectory(ldir, rdir)
+        val tmp = tmpHandle.tempDir
+
+        val procHandle = this.runJavaAsync(
+            "-jar",
+            jarPathStr,
+            "-l",
+            "java19",
+            "-r",
+            tmp.toAbsolutePath().toString(),
+            "-s",
+            tmp.toAbsolutePath().toString()
+        )
+
+        return SCPDToolPairwiseExecutionFuture(
+            procHandle.proc,
+            JavaAsyncBundle(tmpHandle, procHandle),
+            this
+        )
+    }
+
+    override fun complete(handle: Process, bundle: Any): SCPDToolPairwiseExecutionResult {
+        val bundle = bundle as JavaAsyncBundle
+
+        val proc = bundle.procHandle.proc
+        val stdout = bundle.procHandle.stdout//.bufferedReader()
+        val stderr = bundle.procHandle.stderr//.bufferedReader()
+
+        val ldir = bundle.tmpHandle.lhsInput
+        val rdir = bundle.tmpHandle.rhsInput
+
+        if (proc.exitValue() != 0) {
+            return SCPDToolPairwiseExecutionResult.Error("Received error code ${proc.exitValue()}")
+        }
+
+        // Get the console output
+        val output = stdout.readLines()
+
+        val jplagoutput = output.drop(5)
+            .dropLast(2)
+
+        // Parse the similarity score
+        val sim = jplagoutput.last().split(": ").last().toDouble()
+        return SCPDToolPairwiseExecutionResult.Success(sim)
+    }
+
+    override fun close(handle: Process, bundle: Any) {
+
+        handle.destroy()
+        (bundle as? Closeable)?.close()
     }
 }
 

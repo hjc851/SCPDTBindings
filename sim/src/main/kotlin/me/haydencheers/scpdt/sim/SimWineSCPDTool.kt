@@ -1,8 +1,11 @@
 package me.haydencheers.scpdt.sim
 
 import me.haydencheers.scpdt.SCPDTool
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionFuture
+import me.haydencheers.scpdt.SCPDToolPairwiseExecutionResult
 import me.haydencheers.scpdt.common.HungarianAlgorithm
 import me.haydencheers.scpdt.util.TempUtil
+import java.io.Closeable
 import java.io.File
 import java.lang.IllegalArgumentException
 import java.lang.Integer.max
@@ -282,6 +285,69 @@ class SimWineSCPDTool: SCPDTool {
             .average()
 
         return sim
+    }
+
+    //
+    // Async
+    //
+
+    data class SWAsyncBundle(
+        val tmpHandle: TempUtil.TempInputTriple
+    ): Closeable {
+        override fun close() {
+            tmpHandle.close()
+        }
+    }
+
+    override fun executePairwiseAsync(ldir: Path, rdir: Path): SCPDToolPairwiseExecutionFuture {
+        if (!::simPath.isInitialized) throw IllegalStateException("Field simPath is not thawed")
+
+        if (Files.list(ldir).use { it.count() } == 0.toLong()) throw IllegalStateException("LHS is empty")
+        if (Files.list(rdir).use { it.count() } == 0.toLong()) throw IllegalStateException("RHS is empty")
+
+        val tmpHandle = TempUtil.copyPairwiseInputsToTempDirectory(ldir, rdir)
+        val (tmp, lhs, rhs) = tmpHandle
+
+        val proc = ProcessBuilder()
+            .command(
+                wineStr,
+                simPathStr,
+                "-R",
+                "-s",
+                "-p",
+                lhs.toAbsolutePath().toString(),
+                rhs.toAbsolutePath().toString()
+            ).start()
+
+        return SCPDToolPairwiseExecutionFuture(
+            proc,
+            SWAsyncBundle(tmpHandle),
+            this
+        )
+    }
+
+    override fun complete(handle: Process, bundle: Any): SCPDToolPairwiseExecutionResult {
+        bundle as SWAsyncBundle
+
+        val proc = handle
+
+        if (proc.exitValue() != 0) {
+            return SCPDToolPairwiseExecutionResult.Error("Received error code ${proc.exitValue()}")
+        }
+
+        val output = proc.inputStream
+            .bufferedReader()
+            .use { it.readLines() }
+
+        val tmp = bundle.tmpHandle.tempDir
+
+        val sim = calculateSimilarity(output, tmp.toAbsolutePath().toString())
+        return SCPDToolPairwiseExecutionResult.Success(sim)
+    }
+
+    override fun close(handle: Process, bundle: Any) {
+        handle.destroy()
+        (bundle as? Closeable)?.close()
     }
 }
 
