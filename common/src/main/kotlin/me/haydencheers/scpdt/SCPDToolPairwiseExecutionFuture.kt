@@ -2,6 +2,7 @@ package me.haydencheers.scpdt
 
 import java.io.Closeable
 import java.lang.IllegalStateException
+import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 
 class SCPDToolPairwiseExecutionFuture(
@@ -19,8 +20,11 @@ class SCPDToolPairwiseExecutionFuture(
 
     fun getResult(): SCPDToolPairwiseExecutionResult {
         if (!isFinished()) throw IllegalStateException("Process is not finished!")
-
         return completionDelegate.complete(handle, bundle)
+    }
+
+    fun waitFor(time: Long, unit: TimeUnit): Boolean {
+        return handle.waitFor(time, unit)
     }
 
     override fun close() {
