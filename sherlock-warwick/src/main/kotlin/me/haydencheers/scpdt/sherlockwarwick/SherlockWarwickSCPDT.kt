@@ -9,6 +9,7 @@ import java.io.Closeable
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 import kotlin.math.max
 import kotlin.streams.toList
 
@@ -321,13 +322,20 @@ class SherlockWarwickSCPDT: AbstractJavaSCPDTool() {
 
         return SCPDToolPairwiseExecutionFuture(
             procHandle.proc,
-            JavaAsyncBundle(tmpHandle, procHandle),
+            SherlockWarwickAsyncBundle(tmpHandle, procHandle, lJavaFiles, rJavaFiles),
             this
         )
     }
 
+    data class SherlockWarwickAsyncBundle(
+        val tmpHandle: TempUtil.TempInputTriple,
+        val procHandle: AbstractJavaSCPDTool.JavaExecAsyncHandle,
+        val lJavaFiles: List<String>,
+        val rJavaFiles: List<String>
+    )
+
     override fun complete(handle: Process, bundle: Any): SCPDToolPairwiseExecutionResult {
-        val bundle = bundle as JavaAsyncBundle
+        val bundle = bundle as SherlockWarwickAsyncBundle
 
         val proc = bundle.procHandle.proc
         val stdout = bundle.procHandle.stdout
@@ -337,16 +345,19 @@ class SherlockWarwickSCPDT: AbstractJavaSCPDTool() {
             return SCPDToolPairwiseExecutionResult.Error("Received error code ${proc.exitValue()}")
         }
 
-        val (tmp, lhs, rhs) = bundle.tmpHandle
-        val lJavaFiles = Files.walk(lhs)
-            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
-            .use { it.toList() }
-            .map { it.toAbsolutePath().toString() }
+        val lJavaFiles = bundle.lJavaFiles
+        val rJavaFiles = bundle.rJavaFiles
 
-        val rJavaFiles = Files.walk(rhs)
-            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
-            .use { it.toList() }
-            .map { it.toAbsolutePath().toString() }
+        val (tmp, lhs, rhs) = bundle.tmpHandle
+//        val lJavaFiles = Files.walk(lhs)
+//            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+//            .use { it.toList() }
+//            .map { it.toAbsolutePath().toString() }
+//
+//        val rJavaFiles = Files.walk(rhs)
+//            .filter { Files.isRegularFile(it) && it.fileName.toString().endsWith(".java") }
+//            .use { it.toList() }
+//            .map { it.toAbsolutePath().toString() }
 
         // Get the console output
         val output = stdout.readLines()
@@ -407,7 +418,7 @@ fun main() {
     val tool = SherlockWarwickSCPDT()
     tool.thaw()
 
-    val root = Paths.get("/media/haydencheers/Data/PrEP/datasets/COMP2240_2018_A1")
+    val root = Paths.get("/media/haydencheers/Data/PrEP/datasets/COMP2240_A1_2018")
 
     val dirs = Files.list(root)
         .filter { Files.isDirectory(it) && !Files.isHidden(it) }
@@ -418,8 +429,12 @@ fun main() {
 
         for (r in l+1 until dirs.size) {
             val rdir = dirs[r]
+            val future = tool.executePairwiseAsync(ldir, rdir)
 
-            val res = tool.evaluateAllFiles(ldir, rdir)
+            future.waitFor(1L, TimeUnit.MINUTES)
+
+            val result = future.getResult()
+            println(result)
         }
     }
 
