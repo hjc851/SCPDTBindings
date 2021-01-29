@@ -68,7 +68,7 @@ class PlaggieSCPDT: AbstractJavaSCPDTool() {
 
             // Get the console output
             val out = result.out.toList()
-            val score = out.last()
+            val score = out.dropLast(1).last() // Reports A-B \n B-A
 
             result.close()
 
@@ -170,7 +170,7 @@ class PlaggieSCPDT: AbstractJavaSCPDTool() {
 
         // Get the console output
         val out = stdout.readLines()
-        val score = out.last()
+        val score = out.dropLast(1).last() // Reports A-B \n B-A
 
         val scoreVal = score.split(":")[2]
         val sim = scoreVal.toDouble() * 100
